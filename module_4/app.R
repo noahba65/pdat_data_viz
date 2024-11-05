@@ -142,7 +142,7 @@ server <- function(input, output, session) {
       labs(x = "Airline", y = "Departure Delay (Minutes)", title = "Departure Delays by Airline") +
       theme(axis.text = element_text(size = 14),
             axis.text.x = element_text(angle = 60, hjust = 1),
-            axis.title = element_text(size = 18),
+            axis.title = element_text(size = 16),
             plot.title = element_text(face = "bold", size = 30),
             panel.grid = element_blank())
     
