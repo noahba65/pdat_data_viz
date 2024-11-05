@@ -1,0 +1,129 @@
+---
+title: "Module 1"
+author: "Noah Anderson"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+# Critique
+
+## Positive Aspects of Playfair’s Visualization
+Playfair’s circle plot effectively uses several design elements to communicate quantitative information. The scaling of circles by area provides an intuitive sense of magnitude for each country's revenue and population, allowing for quick visual comparisons. The Gestalt principle of continuity is well employed with the dotted lines connecting revenue and population circles, guiding the viewer’s eyes and encouraging direct comparisons between values for each country. This visual connection creates a triangular shape, and its orientation (either left or right) serves as a unique indicator of economic strength relative to population. For instance, the triangles for countries like England, Spain, and Portugal display a steeper hypotenuse toward the left, visually representing their strong revenue relative to population, unlike Russia and Turkey, whose hypotenuses face right, indicating lower revenue. Additionally, the order based on geographic size leads the viewer along a progressive path through the countries, facilitating a coherent flow and supporting regional comparisons.
+
+## Negative Aspects of Playfair’s Visualization
+Despite its strengths, some elements of Playfair’s design could hinder the communication of quantitative information. The color scheme is somewhat inconsistent and ambiguous. Countries with colonies, such as Sweden and Britain, are assigned only a single color, making it unclear whether or not they have colonial holdings; moreover, Britain and Russia both share colors for “Asiatic dominions,” which may confuse viewers unfamiliar with the color key. While the contrast between colors is generally effective, the yellow used for revenue can blend with the background, potentially due to historical printing limitations, though a bolder color might improve clarity. The scale of the circles helps standardize values by normalizing in millions, but the impact of this scaling choice is significant. Since it emphasizes relative comparison, absolute values may be harder to gauge, which could limit precision in interpretation. Additionally, while the grid aids in aligning values with their scales, it could be more prominent or standardized to further enhance accuracy in comparisons.
+
+## Overall Effectiveness
+Overall, Playfair’s chart succeeds in communicating the main message about each country’s revenue relative to its population. The clever use of shapes, lines, and Gestalt principles creates a distinctive structure that draws attention to disparities among countries, especially highlighting economic outliers like England. However, minor inconsistencies in color and contrast, along with some limitations in scale interpretation, suggest room for improvement in its ability to convey more precise quantitative details.
+
+# Recreaeting Playfairs Plot
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(ggforce)
+library(glue)
+library(ggrepel)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# Calculate radius and cumulative x positions for even edge-based spacing
+playfair_df <- read_csv("playfair_european_nations.csv") %>%
+  arrange(desc(Area)) %>%
+  mutate(
+    Country = ifelse(Country == "Countries under the Dominion of France", "French Dominion", Country),
+
+    Country = factor(Country, levels = Country)) %>%
+  mutate(
+    
+    # Calculating a radius that is based on the area of the country. It is scaled down
+    # by dividing by 200 which is arbitrary. 200 was chosen after iterating through 
+    # a few different values to make sure the circles were not too big
+    radius = sqrt(Area / pi) / 200 ,
+    
+    # This formula spaces out the circle centers x positions dynamically based on its
+    # radius and those of the previous radii
+    circle_center = cumsum(lag(radius, default = 0) * 2 + 10) + radius,
+    
+    # The population x position goes on the left edge of each circle
+    population_x = circle_center - radius,
+    
+    # The taxation x position goes on the right edge of each circle. 
+    tax_x = circle_center + radius,
+    area_text = Area / 1000, 
+    area_text = glue("{area_text}k\nSq Miles"))
+
+
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# Plot with adjusted x_position based on radius and constant edge spacing
+ggplot(data = playfair_df) +
+  geom_segment(aes(x = population_x, xend = population_x, y = 0, yend = Population), color = "red") +
+  scale_x_continuous(breaks = playfair_df$circle_center, labels = str_wrap(playfair_df$Country, 10)) +
+  geom_segment(aes(x = tax_x, xend = tax_x, y = 0, yend = Taxation), color = "orange") +
+  geom_segment(aes(x = population_x, xend = tax_x, y = Population, yend = Taxation), color = "black", linetype = "dotted") +
+  xlab("") +
+  # Custom the Y scales:
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "Population",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis( transform=~.*1, name="Taxation",  breaks = seq(0,30, by = 10)),
+    breaks = seq(0,30, by = 10)
+  ) +
+  geom_circle(aes(x0 = circle_center , y0 = 0 , r = radius ), fill = "#5F8575") +
+  geom_text(aes(x = circle_center, y = -10, label = area_text), size = 2) +
+  coord_fixed(ylim = c(-15, max(playfair_df$Population ) + 2)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .4))
+
+
+
+```
+
+
+# Reimagining Playfairs Plot
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+set.seed(100)  # Set seed for reproducibility
+
+playfair_df  %>%
+  mutate(text_label = case_when(
+    Country %in% c("Britain & Ireland", "Russian Empire") ~ glue("{Country}\n({Area / 1000}k Sq Miles)"),
+    TRUE ~ as.character(Country)  # Ensure the default case is a character
+  )) %>% 
+  ggplot(aes(x = Population, y = Taxation)) +
+  geom_point(aes(size = Area), color = "#5F8575") +  # Map actual Area for size
+  geom_point(data = filter(playfair_df, Country %in% c("Britain & Ireland", "Russian Empire") ), 
+           aes(x = Population, y = Taxation, size = Area), 
+           stroke = 2,  # Border thickness
+           shape = 21,  # Use shape that supports fill and border
+           color = "red") +  # Red border
+  geom_label_repel(aes(label = text_label), size = 2.5, fill = "white", label.padding = .16) +
+ 
+  scale_size_continuous(range = c(1, 20)) +
+  scale_x_continuous(breaks = seq(0, 30, by = 5)) +
+  labs(title = "Population vs Taxation", subtitle = "Size scaled for Country Area",
+       x = "Population (Millions)", y = "Tax Revenue (Millions of Pounds)") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold", size = 20),
+    plot.subtitle = element_text(face = "italic"),
+    panel.grid.major = element_blank(),  # Remove major grid lines
+    panel.grid.minor = element_blank()   # Remove minor grid lines
+  )
+```
+
+I opted to illustrate the data using a straightforward scatter plot, positioning population as the independent variable and taxation as the dependent variable. To provide additional context, I scaled the size of each point according to the area of the respective countries. I decided to omit the legend, as I believe legends can often create confusion when dealing with continuous variables. Instead, I included explanatory text in the subtitle regarding the scaling. This may not be the best way to communicate that size corresponds with area, but I struggled to make the legend clear enough. 
+
+To emphasize the contrast between Russia and Britain, I applied a red border around these two countries. This choice serves to underscore my argument that area and population do not necessarily correlate with higher tax revenue. I aimed for the red borders to leverage Gestalt principles, guiding viewers’ attention to these key nations. Once the audience focuses on these countries, they may also notice the area in square miles, with the area being displayed solely for Russia and Britain.
+
+Ultimately, my goal is to illustrate how England, despite its central position, has a significant area yet does not correspondingly yield high taxation. This observation mirrors the insights that Playfair intended to convey regarding the disconnect between population, area, and tax revenue.
+
+
+
+
