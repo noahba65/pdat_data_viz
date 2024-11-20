@@ -1,0 +1,94 @@
+
+---
+title: "Untitled"
+output: html_document
+date: "2024-11-15"
+author: "Noah Anderson"
+---
+
+```{r message=FALSE, warning=FALSE}
+# Load necessary libraries
+library(tidyverse)   # For data manipulation and ggplot2
+library(plotly)      # For interactive plots
+library(glue)        # For string formatting
+
+# Read in stars dataset and calculate log luminosity
+stars <- read_csv("near_stars.csv") %>%
+  mutate(log_L = log10(L))  # Adding log(L) to the dataframe
+```
+
+### 1. **Create a Static ggplot2 Visualization**
+
+```{r}
+# Creating a ggplot scatter plot with star data
+stars_gg <- ggplot(data = stars) +
+  geom_point(aes(x = bv_color, y = log_L, size = R, color = bv_color, text = paste(
+    " B-V Color: ", bv_color, "<br>",
+    "Log Luminosity: ", log_L, "<br>",
+    "Radius: ", R
+  )), show.legend = FALSE) +  # Hide the legend
+  scale_color_gradientn(colors = c("blue", "cyan", "white", "yellow", "orange", "red")) +  # Custom colorscale
+  labs(x = "B-V Color Index", y = "Luminosity (Relative to the Sun) Log10") +  # Axis labels
+  theme(
+    panel.background = element_rect(fill = "black", color = "black"),  # Background customization
+    plot.background = element_rect(fill = "black", color = "black"),  # Background customization
+    legend.background = element_rect(fill = "black"),  # Legend background
+    legend.key = element_rect(fill = "black"),  # Legend key background
+    panel.grid.major = element_blank(),  # Removes major gridlines
+    panel.grid.minor = element_blank(),  # Removes minor gridlines
+    axis.text = element_text(color = "white"),  # White axis text
+    axis.title = element_text(color = "white"), # White axis titles
+    plot.title = element_text(color = "white", hjust = 0.5),  # White plot title
+    plot.subtitle = element_text(color = "white", hjust = 0.5) # White subtitle (optional)
+  )
+```
+
+```{r}
+# Create interactive plot using plotly
+ggplotly(stars_gg, tooltip = "text")
+```
+
+### 2. **Interactive Plot with Plotly**
+
+```{r}
+# Create interactive plotly scatter plot
+plot_ly(data = stars, 
+        x = ~bv_color, 
+        y = ~log_L, 
+        color = ~bv_color, 
+        size = ~bv_color, 
+        type = "scatter", 
+        mode = "markers", 
+        text = ~paste0("Star Name: ", name), 
+        marker = list(
+          colorscale = list(
+            c(0, "blue"),
+            c(0.2, "cyan"),
+            c(0.4, "white"),
+            c(0.6, "yellow"),
+            c(0.8, "orange"),
+            c(1, "red")
+          )
+        )) %>%
+  layout(
+    plot_bgcolor = "black",  # Black background for the plot area
+    paper_bgcolor = "black", # Black background for the entire figure
+    xaxis = list(
+      title = "Star Color",  # X-axis title
+      color = "white",  # White axis text
+      showgrid = FALSE,  # Remove gridlines
+      zeroline = FALSE,  # Remove zero line
+      showticklabels = FALSE  # Hide x-axis labels
+    ), 
+    yaxis = list(
+      title = "Log Luminosity",  # Y-axis title
+      color = "white",  # White axis text
+      showgrid = FALSE,  # Remove gridlines
+      zeroline = FALSE,  # Remove zero line
+      showticklabels = FALSE  # Hide y-axis labels
+    ), 
+    coloraxis = list(colorbar = list(title = "BV Color")),  # Rename the color legend
+    title = list(text = "Star Scatter Plot", font = list(color = "white"))  # White plot title
+  )
+```
+Unfortunately, I was unable to supress or rename the color legend due to the behavior when both color and size aesthetics are used simultaneously.
